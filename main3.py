@@ -1,62 +1,92 @@
 import cv2
+import time
 import os
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-# --- 1. Fix Pathing ---
-# This ensures the script looks in the same folder where the .py file is saved
-current_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(current_dir, "face_landmarker.task")
-image_path = os.path.join(current_dir, "group_photo.jpg") # Ensure this filename is correct!
-
-if not os.path.exists(image_path):
-    print(f"CRITICAL ERROR: Could not find {image_path}. Check your filename!")
-    exit()
-
-# --- 2. Configure for Group Photos ---
+# 1. Configuration
+model_path = "face_landmarker.task"
 BaseOptions = python.BaseOptions
 FaceLandmarker = vision.FaceLandmarker
 FaceLandmarkerOptions = vision.FaceLandmarkerOptions
 VisionRunningMode = vision.RunningMode
 
+# 2. Input Selection
+print("0: Webcam\n1: Select File (Photo or Video)")
+choice = input("Enter choice: ")
+
+source_path = 0
+if choice == "1":
+    import tkinter as tk
+    from tkinter import filedialog
+    root = tk.Tk(); root.withdraw()
+    source_path = filedialog.askopenfilename()
+    root.destroy()
+
+# Check if input is a static photo
+is_image = str(source_path).lower().endswith(('.jpg', '.jpeg', '.png'))
+
+# 3. Setup Landmarker based on Source Type
+mode = VisionRunningMode.IMAGE if is_image else VisionRunningMode.VIDEO
 options = FaceLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
-    running_mode=VisionRunningMode.IMAGE, # MUST be IMAGE for static photos
-    num_faces=15, # Increased for your IET group size
-    min_face_detection_confidence=0.3 # Lowered to catch people in the background
+    running_mode=mode,
+    num_faces=10,
+    min_face_detection_confidence=0.4 # Help detect faces in the background
 )
 landmarker = FaceLandmarker.create_from_options(options)
 
-# --- 3. Process ---
-frame = cv2.imread(image_path)
-rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+# 4. Execution
+if is_image:
+    # --- STATIC PHOTO LOGIC ---
+    frame = cv2.imread(source_path)
+    # Convert and detect using the IMAGE mode method
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    result = landmarker.detect(mp_image) # No timestamp for static images
+    
+    if result.face_landmarks:
+        face_count = len(result.face_landmarks)
+        for face in result.face_landmarks:
+            for lm in face:
+                x, y = int(lm.x * frame.shape[1]), int(lm.y * frame.shape[0])
+                cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
+        
+        cv2.putText(frame, f"Faces Found: {face_count}", (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.imshow("Group Photo Detection", frame)
+        cv2.waitKey(0)
 
-print("Processing group photo... please wait.")
-result = landmarker.detect(mp_image) # Use .detect for static images
+else:
+    # --- VIDEO / WEBCAM LOGIC ---
+    cap = cv2.VideoCapture(source_path)
+    start_time = time.time()
+    
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret: break
 
-# --- 4. Draw and Count ---
-face_count = 0
-if result.face_landmarks:
-    face_count = len(result.face_landmarks)
-    for face_landmarks in result.face_landmarks:
-        for lm in face_landmarks:
-            h, w, _ = frame.shape
-            x, y = int(lm.x * w), int(lm.y * h)
-            cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
+        # Calculate timestamp required for VIDEO mode
+        if choice == "0":
+            ts = int((time.time() - start_time) * 1000)
+        else:
+            fps = cap.get(cv2.CAP_PROP_FPS) or 30
+            ts = int((cap.get(cv2.CAP_PROP_POS_FRAMES) * 1000) / fps)
 
-# Display result
-print(f"Faces detected: {face_count}")
-cv2.putText(frame, f"Faces: {face_count}", (50, 150), 
-            cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 5)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        result = landmarker.detect_for_video(mp_image, ts) # Timestamp is mandatory here
 
-# Resize for display only so it fits on your MacBook Air screen
-display_w = 1280
-display_h = int(frame.shape[0] * (display_w / frame.shape[1]))
-resized_view = cv2.resize(frame, (display_w, display_h))
+        face_count = len(result.face_landmarks) if result.face_landmarks else 0
+        if result.face_landmarks:
+            for face in result.face_landmarks:
+                for lm in face:
+                    x, y = int(lm.x * frame.shape[1]), int(lm.y * frame.shape[0])
+                    cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
 
-cv2.imshow("IET Group Photo Results", resized_view)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+        cv2.putText(frame, f"Faces Found: {face_count}", (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.imshow("Video Tracking", frame)
+        if cv2.waitKey(1) & 0xFF == 27: break
+    
+    cap.release()
+
 landmarker.close()
+cv2.destroyAllWindows()
