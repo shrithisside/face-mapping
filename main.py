@@ -6,11 +6,10 @@ model_path = os.path.join(current_dir, "face_landmarker.task")
 
 import cv2                           
 import numpy as np                  
-import mediapipe as mp               # MediaPipe main package
-from mediapipe.tasks import python   # MediaPipe Tasks Python API
-from mediapipe.tasks.python import vision  # Vision-related tasks (FaceLandmarker)
+import mediapipe as mp               
+from mediapipe.tasks import python   
+from mediapipe.tasks.python import vision  
 
-# ---------------- REQUIRED ALIASES (Missing Part) ----------------
 
 # Get BaseOptions class from MediaPipe (used to load the model file)
 BaseOptions = python.BaseOptions
@@ -51,8 +50,17 @@ landmarker = FaceLandmarker.create_from_options(options)
 # ---------------- Video Input ----------------
 
 # Load video file (use 0 for webcam)
-cap = cv2.VideoCapture('01.mp4', cv2.CAP_AVFOUNDATION) # Use this line to read from a video file (make sure the file is in the same directory as your script)
-cap = cv2.VideoCapture(0) # Use 0 for webcam
+#cap = cv2.VideoCapture('01.mp4', cv2.CAP_AVFOUNDATION) # Use this line to read from a video file (make sure the file is in the same directory as your script)
+#cap = cv2.VideoCapture(0) # Use 0 for webcam
+
+# ---------------- Set Input Source ----------------
+USE_WEBCAM = int(input("Enter 1 for webcam, 0 for video file: "))  # Set to True for webcam, False for '01.mp4'
+
+if USE_WEBCAM == 1:
+    cap = cv2.VideoCapture(0)
+else:
+    cap = cv2.VideoCapture('01.mp4')
+# --------------------------------------------------
 
 # Get frames per second of the video
 fps = cap.get(cv2.CAP_PROP_FPS)
