@@ -29,11 +29,12 @@ is_image = str(source_path).lower().endswith(('.jpg', '.jpeg', '.png'))
 
 # 3. Setup Landmarker based on Source Type
 mode = VisionRunningMode.IMAGE if is_image else VisionRunningMode.VIDEO
+# Use these exact settings for group photos
 options = FaceLandmarkerOptions(
-    base_options=BaseOptions(model_asset_path=model_path),
-    running_mode=mode,
-    num_faces=10,
-    min_face_detection_confidence=0.4 # Help detect faces in the background
+    base_options=BaseOptions(model_asset_path="face_landmarker.task"),
+    running_mode=VisionRunningMode.IMAGE, # CRITICAL for photos
+    num_faces=20, # Higher than the number of people in your IET group
+    min_face_detection_confidence=0.25 # Lowered to catch distant faces
 )
 landmarker = FaceLandmarker.create_from_options(options)
 
