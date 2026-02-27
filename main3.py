@@ -18,11 +18,11 @@ choice = input("Enter choice: ")
 
 source_path = 0
 if choice == "1":
-    import tkinter as tk
-    from tkinter import filedialog
-    root = tk.Tk(); root.withdraw()
-    source_path = filedialog.askopenfilename()
-    root.destroy()
+    # Skip the tkinter popup to avoid the termination crash
+    print("Files in folder:", [f for f in os.listdir('.') if f.endswith(('.jpg', '.mp4'))])
+    source_path = input("Enter the EXACT filename (e.g., group_photo.jpg): ")
+    if not os.path.exists(source_path):
+        print(f"File {source_path} not found!"); exit()
 
 # Check if input is a static photo
 is_image = str(source_path).lower().endswith(('.jpg', '.jpeg', '.png'))
