@@ -56,7 +56,7 @@ landmarker = FaceLandmarker.create_from_options(options)
 #cap = cv2.VideoCapture(0) # Use 0 for webcam
 
 # ---------------- Set Input Source ----------------
-USE_WEBCAM = int(input("Enter 0 for webcam\n1 for video 1 file\n2 for video 2 file: ")) 
+USE_WEBCAM = int(input("Enter 0 for webcam\n1 for video 1 file\n2 for video 2 file\n Enter your choice: ")) 
 
 if USE_WEBCAM == 0:
     cap = cv2.VideoCapture(0)
@@ -91,7 +91,7 @@ else:
 fps = cap.get(cv2.CAP_PROP_FPS)
 
 # Calculate delay between frames (milliseconds)
-delay = int(100 / fps)
+delay = int(1000 / fps)
 
 # Keeps track of the time (in milliseconds) for each video frame
 # Required in VIDEO mode so MediaPipe knows the order of frames
