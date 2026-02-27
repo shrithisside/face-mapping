@@ -51,7 +51,8 @@ landmarker = FaceLandmarker.create_from_options(options)
 # ---------------- Video Input ----------------
 
 # Load video file (use 0 for webcam)
-cap = cv2.VideoCapture('01.mp4')
+cap = cv2.VideoCapture('01.mp4', cv2.CAP_AVFOUNDATION) # Use this line to read from a video file (make sure the file is in the same directory as your script)
+cap = cv2.VideoCapture(0) # Use 0 for webcam
 
 # Get frames per second of the video
 fps = cap.get(cv2.CAP_PROP_FPS)
