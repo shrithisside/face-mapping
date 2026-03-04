@@ -1,5 +1,8 @@
-import cv2
 import os
+os.environ['GLOG_minloglevel'] = '3'        # Suppress Google LOG warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    # Suppress TensorFlow warnings
+
+import cv2
 import time
 import mediapipe as mp
 from mediapipe.tasks import python

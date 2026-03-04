@@ -1,79 +1,120 @@
 import cv2
-import time
 import os
+import time
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+import tkinter as tk
+from tkinter import filedialog
 
-# ---------------- Initialization ----------------
-model_path = "face_landmarker.task"
-BaseOptions = python.BaseOptions
-FaceLandmarker = vision.FaceLandmarker
-FaceLandmarkerOptions = vision.FaceLandmarkerOptions
-VisionRunningMode = vision.RunningMode
+# 1. Path Safety Check
+current_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(current_dir, "face_landmarker.task")
 
-options = FaceLandmarkerOptions(
-    base_options=BaseOptions(model_asset_path=model_path),
-    running_mode=VisionRunningMode.VIDEO,
-    num_faces=10 # Set to 10 for your group of friends
-)
-landmarker = FaceLandmarker.create_from_options(options)
-
-# ---------------- Source Selection ----------------
-print("0: Webcam\n1: video 1 (01.mp4)\n2: video 2 (02.mp4)\n3: Select file...")
-choice = input("Enter choice: ")
+# 2. Input Selection with Finder
+print("--- Face Counting System ---")
+print("0: Webcam")
+print("1: Choose from Finder")
+choice = input("Select Source (0/1): ")
 
 is_webcam = False
+source_path = ""
+
 if choice == "0":
-    cap = cv2.VideoCapture(0)
+    source_path = 0
     is_webcam = True
-elif choice == "1":
-    cap = cv2.VideoCapture('01.mp4')
-elif choice == "2":
-    cap = cv2.VideoCapture('02.mp4')
+    is_image = False
 else:
-    import tkinter as tk
-    from tkinter import filedialog
     root = tk.Tk()
     root.withdraw()
-    path = filedialog.askopenfilename()
-    cap = cv2.VideoCapture(path)
+    root.attributes('-topmost', True)
+    
+    source_path = filedialog.askopenfilename(
+        title="Select Photo or Video",
+        filetypes=[("Media Files", "*.jpg *.jpeg *.png *.mp4 *.mov *.avi")]
+    )
     root.destroy()
+    
+    if not source_path:
+        print("No file selected. Exiting."); exit()
+        
+    is_image = source_path.lower().endswith(('.jpg', '.jpeg', '.png'))
 
-# ---------------- Main Loop ----------------
-start_time = time.time()
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret: break
+# 3. MediaPipe Settings (reverted to stable values)
+running_mode = vision.RunningMode.IMAGE if is_image else vision.RunningMode.VIDEO
 
-    # Logic: Webcams need elapsed time; videos need frame-based time
-    if is_webcam:
-        timestamp_ms = int((time.time() - start_time) * 1000)
-    else:
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        frame_idx = cap.get(cv2.CAP_PROP_POS_FRAMES)
-        timestamp_ms = int((frame_idx * 1000) / fps)
+options = vision.FaceLandmarkerOptions(
+    base_options=python.BaseOptions(model_asset_path=model_path),
+    running_mode=running_mode,
+    num_faces=50,
+    min_face_detection_confidence=0.3,
+    min_face_presence_confidence=0.3,
+)
 
-    # Process
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-    result = landmarker.detect_for_video(mp_image, timestamp_ms)
+landmarker = vision.FaceLandmarker.create_from_options(options)
 
-    # Visualize and Count
-    face_count = 0
+# 4. Processing
+if is_image:
+    frame = cv2.imread(source_path)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    result = landmarker.detect(mp_image)
+    
     if result.face_landmarks:
-        face_count = len(result.face_landmarks)
-        for face_landmarks in result.face_landmarks:
-            for lm in face_landmarks:
-                h, w, _ = frame.shape
-                cv2.circle(frame, (int(lm.x * w), int(lm.y * h)), 1, (0, 255, 0), -1)
+        for face in result.face_landmarks:
+            for lm in face:
+                x, y = int(lm.x * frame.shape[1]), int(lm.y * frame.shape[0])
+                cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
+        
+        count = len(result.face_landmarks)
+        cv2.putText(frame, f"Faces: {count}", (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 3)
+        cv2.imshow("Result", cv2.resize(frame, (1280, 960)))
+        cv2.waitKey(0)
 
-    # Display Counter
-    cv2.putText(frame, f'Faces: {face_count}', (30, 80), 
-                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
-    cv2.imshow("Face Counter", frame)
+else:
+    cap = cv2.VideoCapture(source_path)
 
-    if cv2.waitKey(1) & 0xFF == 27: break
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    wait_ms = int(1000 / fps) if fps > 0 else 33
 
-cap.release()
+    start_time = time.time()
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        timestamp_ms = int((time.time() - start_time) * 1000)
+
+        SCALE = 3.5
+        detection_frame = cv2.resize(frame, None, fx=SCALE, fy=SCALE, interpolation=cv2.INTER_CUBIC)
+
+        mp_image = mp.Image(
+            image_format=mp.ImageFormat.SRGB,
+            data=cv2.cvtColor(detection_frame, cv2.COLOR_BGR2RGB)
+        )
+
+        result = landmarker.detect_for_video(mp_image, timestamp_ms)
+
+        face_count = len(result.face_landmarks) if result.face_landmarks else 0
+
+
+        if result.face_landmarks:
+            for face in result.face_landmarks:
+                for lm in face:
+                    x = int(lm.x * frame.shape[1])
+                    y = int(lm.y * frame.shape[0])
+                    cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
+
+        cv2.putText(frame, f"Faces: {face_count}", (30, 70),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        cv2.imshow("Detection", frame)
+
+
+        if cv2.waitKey(wait_ms) & 0xFF == 27:
+            break
+
+    cap.release()
+
+landmarker.close()
 cv2.destroyAllWindows()
