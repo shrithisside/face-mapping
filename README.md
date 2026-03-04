@@ -25,5 +25,6 @@ It detects **468 facial landmark points** from video frames using the `face_land
 
 ---
 
-main1.py has low range effective accuracy for face mapping but feels faster due to higher frame rate
-main2.py has high range effective accuracy for face mapping but feels a bit slower due to low frame rate 
+
+- main1.py has low range effective accuracy for face mapping but feels faster due to higher frame rate
+- main2.py has high range effective accuracy for face mapping but feels a bit slower due to low frame rate 
