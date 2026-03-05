@@ -118,3 +118,4 @@ else:
 
 landmarker.close()
 cv2.destroyAllWindows()
+()
